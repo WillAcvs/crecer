@@ -16,6 +16,7 @@ use App\beneficiarios;
 use App\PagosUsuarios;
 use Illuminate\Http\Request;
 use App\Mail\NotificaciónDeTarea;
+use App\Mail\PagoProcesado;
 use App\Mail\ActivacionDeTuCuenta;
 use Illuminate\Support\Facades\DB;
 
@@ -56,7 +57,7 @@ class genericController extends Controller
         ciclo::create([
             'idUser' => $request->idUser,
             'idNodo' => $nodo->id,
-            'idMatriz' => $matrizBronce[0]->id,
+            'idMatriz' => $matrizBronce[0]->id, 
             'tipo' => 0,
         ]);
         $cicloPadre=ciclo::where('idUser','=',$user->padre)
@@ -1032,11 +1033,16 @@ public function validarU($id, $motivo = null){
        return Response(json_encode($data));
 }
 
-public function registrarPago($id){
+public function registrarPago($id,$amount){
+    $pago=PagosUsuarios::find($id);
+    $user=User::find($pago->user_id);
     $where = array('id' => $id);
     $updateArr = ['estatus' => 1];
+    $titulo='Su pago ha sido procesado.';
+    $mensaje='Felicidades!!! Hemos realizado el pago correspondiente por haber completado tu comunidad.';
     $event  = PagosUsuarios::where($where)->update($updateArr);
-    return redirect()->back()->with('status','Pago Procesado');
+    Mail::to($user->email)->send(new PagoProcesado ($titulo,$mensaje,$amount,$user));
+    return redirect()->back()->with('status','Pago Procesado'); 
  
 }
 

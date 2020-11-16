@@ -28,7 +28,7 @@ Route::get('/validarUsuario/{id}/{motivo?}','GenericController@validarU');
 Route::get('/crearDispersion','GenericController@crearDispersion');
 Route::get('/listarPagos/{estatus}','GenericController@listarPagos');
 Route::get('/listarPagos','GenericController@listarPagos1');
-Route::get('/procesarPago/{id}','GenericController@registrarPago');
+Route::get('/procesarPago/{id}&{amount}','GenericController@registrarPago');
 Route::get('/perfil','GenericController@editar');
 
 Route::get('/editarPerfil','GenericController@edita');

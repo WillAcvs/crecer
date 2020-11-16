@@ -118,7 +118,7 @@
     swal("Procesando Pago...", {
       buttons: false,
     });
- window.location="/procesarPago/{{$pago->id}}";
+  window.location="/procesarPago/{{$pago->id}}&{{$saldo2}}";
   } else {
           swal("Acción cancelada....");
         }
