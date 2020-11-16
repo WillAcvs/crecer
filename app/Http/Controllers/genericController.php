@@ -16,9 +16,10 @@ use App\beneficiarios;
 use App\PagosUsuarios;
 use Illuminate\Http\Request;
 use App\Mail\NotificaciónDeTarea;
+use App\Mail\ActivacionDeTuCuenta;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
+use Illuminate\Support\Facades\Log;
 use App\Mail\CompletasteTuComunidad;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -62,7 +63,7 @@ class genericController extends Controller
                         ->where('idMatriz','=',1)
                         ->where('estatus','=',0)->first();
         //se inserta
-        $lleno=$this->inserta($cicloPadre->idNodo,$nodo);
+        $lleno=$this->inserta($cicloPadre->idNodo,$nodo); 
         $cicloPadre->tipo += 1;
         
         // la bandera lleno significa que la matriz se lleno y debe ciclar el padre
@@ -89,6 +90,23 @@ class genericController extends Controller
             $this->cicla($usercicla,$matrizBronce[0]->id);
             $this->salta($usercicla,$matrizBronce[0]->id); 
         }
+    }
+
+
+    public function revisaComunidad($ciclo, $nodo, $nodoInsertar){
+        $nodoFinal = null;
+        $existInCycle = $this->revisaCicloPadre($ciclo, $nodoInsertar->idUser);
+        if($existInCycle == true){
+            //Obtener el nodo superior
+            $tmpNodo = nodos::findOrFail($ciclo->idNodo);
+            $arriba = nodos::findOrFail($tmpNodo->idArriba);
+            //Obtener el ciclo de nodo
+            $ciclo = ciclo::where('idUser', $arriba->idUser)->where('idMatriz',1)->where('estatus',0)->first();
+            $nodoFinal = $this->revisaComunidad($ciclo, $nodo, $nodoInsertar);
+        }else{
+            $nodoFinal = nodos::findOrFail($ciclo->idNodo);
+        }
+        return $nodoFinal;
     }
 
     /*
@@ -135,8 +153,20 @@ class genericController extends Controller
             }   
             else{
                 if ( $nodoDerecha->idDerecha ==null){
-                    $nodoDerecha->idDerecha=$nodo->id;
-                    $nodo->idArriba=$nodoDerecha->id;
+                    //TODO:: AQUI Revisar que el nodo no exista en la comunidad 
+
+                    $cicloPadre=ciclo::where('idUser','=',$nodoDerecha->idUser)
+                        ->where('idMatriz','=',1)
+                        ->where('estatus','=',0)->first();
+
+                    $existInCycle = $this->revisaCicloPadre($cicloPadre, $nodo->idUser);
+                    if($existInCycle == true){
+                        $nodoFinal = $this->revisaComunidad($cicloPadre, $nodo, $nodo);
+                        $this->inserta($nodoFinal->id, $nodo);
+                    }else{
+                        $nodoDerecha->idDerecha=$nodo->id;
+                        $nodo->idArriba=$nodoDerecha->id;
+                    }
                 }
             }
             $nodoDerecha->save();
@@ -586,7 +616,7 @@ class genericController extends Controller
             $this->traeDescendencia($user,$users);
         }
     }
-    /* 
+    /*  
      * Función traeArbol: trae el arbol actual del usuario
      * pista Tommy
      */
@@ -777,7 +807,7 @@ $codigo2=$pat->nombre[0].''.$apP[0].''.$apM[0];
    $codigo2=substr(str_shuffle($caracteresPermitidos), 0, 3); 
 }
 
-$codigo3=substr(str_shuffle($caracteresPermitidos), 0, $num);
+$codigo3=substr(str_shuffle($caracteresPermitidos), 0, $num); 
 $codigo= $codigo2.'-'.$codigo1.'-'.$codigo3;
     $user = User::create([
         'nickname'=>$request->nombre[0].''.$apP,
@@ -812,7 +842,7 @@ $codigo= $codigo2.'-'.$codigo1.'-'.$codigo3;
         // app(\App\Http\Controllers\genericController::class)->insertaEnMatriz($contenido);
 
         //comentar Mail para evitar el envío de correos de prueba
-       // Mail::to($user->email)->send(new PreregistroCreandoCertezas ($user,$codigo,$request->email,$request->nombre));
+       Mail::to($user->email)->send(new PreregistroCreandoCertezas ($user,$codigo,$request->email,$request->nombre));
  return redirect()->back()->with('status','Pre-Registro creado con exito.');
         }
 
@@ -884,7 +914,6 @@ public function validarU($id, $motivo = null){
     $id = (int) $id;
     $user=User::where('id','=',$id)->first();
     $where = array('id' => $id);
-
     if($user->estatus==1){
         $updateArr = ['estatus' => 0];
     // Mauricio
@@ -939,11 +968,11 @@ public function validarU($id, $motivo = null){
     $contacto = User::where( "id","=",$id)->get();
     foreach ($contacto as $contt) {
        if ($contt->email!='') {
-        $titulo='titulo mensaje';
-        $mensaje='Texto del mensaje a enviar';
+        $titulo='Activación de Cuenta';
+        $mensaje='Activado';
         
         //comentar Mail para no enviar correos de pruebas
-        // Mail::to($contt->email)->send(new NotificaciónDeTarea($titulo,$mensaje,$pago,$contt));
+        Mail::to($contt->email)->send(new ActivacionDeTuCuenta($titulo,$mensaje,$pago,$contt));
        }
     }
     return redirect()->back()->with('status','Pre-Registro validado con exito.');

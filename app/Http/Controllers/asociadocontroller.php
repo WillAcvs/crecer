@@ -4,17 +4,18 @@ namespace App\Http\Controllers;
 
 use App\pais;
 use App\User;
+use App\ciclo;
 use App\nodos;
 use App\matriz;
+
 use App\estados;
 
 use App\infoBancos;
-
 use App\municipios;
+
 use App\userMatriz;
 
 use App\Subscription;
-
 use App\beneficiarios;
 use App\Exceptions\Handler;
 use Illuminate\Http\Request;
@@ -113,11 +114,19 @@ class asociadocontroller extends Controller
      */
     public function reporte() 
     {
+        $id = Auth::id();
+        $ciclo = ciclo::where('idUser', $id)->where('estatus', 0)->first();
+        $nodoCiclo = nodos::where('id', $ciclo->idNodo)->first();
+        $usuarios = app(\App\Http\Controllers\genericController::class)->llenaArbol($nodoCiclo);
+        $usuarios=json_decode($usuarios, true);
+
         $users= User::where('padre','=',Auth::id())->get();
         $patrocinador = User::where('id','=',Auth::id())->first();  
         $bancos = infoBancos::all();
-        $matrices = matriz::all();
-        $matrizUsuarios = userMatriz::all();
+        $matrices = matriz::where('id', $ciclo->idMatriz)->first();
+        $matrizUsuarios = userMatriz::where('idUser', $id)->where('idMatriz', $ciclo->idMatriz)->get();
+
+
        /* $users            = null;
         $usuario_matrices = userMatriz::where('idUser', Auth::id())->get();
 
@@ -168,7 +177,7 @@ class asociadocontroller extends Controller
 
         
         return view( 'asociado.reporte',[
-            'usuarios' => $users,
+            'usuarios' => $usuarios,
             'patrocinador' => $patrocinador,
             'bancos' => $bancos,
             'matrices' => $matrices,

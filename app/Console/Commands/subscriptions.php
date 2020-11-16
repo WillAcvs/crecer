@@ -2,14 +2,16 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\User;
 use App\ciclo;
 use App\userMatriz;
 use App\Subscription;
 use App\PagosUsuarios;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Console\Command;
 use App\Mail\NotificaciónDeTarea;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\SuscripcionCreandoCertezas;
+
 class subscriptions extends Command
 {
     /**
@@ -54,7 +56,7 @@ class subscriptions extends Command
     if($matriz->idMatriz==2){
         $amount=300;   
     }
-    if($matriz->idMatriz==3){
+    if($matriz->idMatriz==3){ 
         $amount=750;   
     }
     if($matriz->idMatriz==4){
@@ -63,16 +65,16 @@ class subscriptions extends Command
     if($matriz->idMatriz==5){
         $amount=3750;   
     }
-    if($matriz->idMatriz==6){
+    if($matriz->idMatriz==6){ 
         $amount=7500;   
     }
             if($sub!=''){
         if($sub->created_at->addDays(30)->isPast()){
             $event  = User::where($where)->update($updateArr);
-            $titulo='titulo mensaje';
-            $mensaje='Texto del mensaje a enviar';
+            $titulo='Tu Suscripción ha Vencido';
+            $mensaje='Renueva para continuar con tus Beneficios';
             $pago=$amount;
-            Mail::to($user->email)->send(new NotificaciónDeTarea($titulo,$mensaje,$pago,$user));
+            Mail::to($user->email)->send(new SuscripcionCreandoCertezas($titulo,$mensaje,$pago,$user));
             }
         }
       }     

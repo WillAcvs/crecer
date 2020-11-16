@@ -19,37 +19,40 @@
                         <thead>
                             <tr>
                                 <th>ID</th>
+                                <th>Patrocinador</th> 
                                 <th>Registrados</th>
-                                <th>Patrocinador</th>
                                 <th>Comunidad</th>
                                 <th>Fecha Alta</th>   
                                 <th>Estatus</th>
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                //dd($matrices);
+                            @endphp
                             @if($usuarios !== NULL)
-
                                 @foreach($usuarios as $user)
+                                    @if ($user['nombre'] == '') 
+                                        @php
+                                            continue;
+                                        @endphp
+
+                                    @endif
                                     <tr>
-                                        <td>{{ @$user->codigo }}</td>
-                                        <td>{{$user->nombre}} {{$user->apellidoPaterno}} {{$user->apellidoMaterno}}</td>
-                                        <td>{{$patrocinador->nombre}} {{$patrocinador->apellidoPaterno}}  {{$patrocinador->apellidoMaterno}}</td>
-                                        <td>@foreach ($matrizUsuarios as $matrizU)
-                                            @if ($matrizU->idUser==$user->id)
-                                            <?php  $mat=$matrizU->idMatriz; ?>
-                                                @foreach ($matrices as $matriz)
-                                                @if ($matriz->id==$mat)
-                                                    <?php echo $matriz->nombre; ?>
-                                                @endif    
-                                                @endforeach
-                                            @endif
-                                        @endforeach</td>
-                                        <td>{{ Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $user->created_at)->format('Y-m-d') }}</td>
+                                        <td>{{ @$user['codigo'] }}</td>
+                                        <td>{{ $patrocinador['nombre'] }} {{ $patrocinador['apellidoPaterno'] }}  {{ $patrocinador['apellidoMaterno'] }}</td>
+                                        <td>{{ $user['nombre'] }} {{ $user['apellidoPaterno'] }} {{ $user['apellidoMaterno'] }}</td>
+                                        <td>
+                                            {{ $matrices->nombre }}
+                                        </td>
+                                        <td>
+                                            {{ Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $user['created_at'])->format('Y-m-d') }}
+                                        </td>
                                         <!-- Mauricio -->
                                         <td>
-                                            @if($user->estatus == 0) 
+                                            @if($user['estatus'] == 0) 
                                                 Desactivado
-                                            @elseif ($user->estatus == 1)
+                                            @else
                                                 Activado
                                             @endIf 
                                         </td>
@@ -58,6 +61,12 @@
                                             {{$banco->nombre}}
                                             @endIf 
                                         @endforeach</td>  -->
+
+
+
+
+
+                                       
 
                                      
 
@@ -70,8 +79,8 @@
                         <tfoot>
                             <tr>
                                 <th>ID</th>
-                                <th>Nombre completo</th>
                                 <th>Patrocinador</th>
+                                <th>Registrados</th>
                                 <th>Comunidad</th>
                                 <th>Fecha Alta</th>
                                 <th>Estatus</th>

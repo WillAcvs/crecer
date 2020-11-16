@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('landing');
 });
-//tommy
-
+//tommy  
+ 
 Route::post('/crear','GenericController@crearUsuarios');
 Route::post('/datosPatrocinador','GenericController@datos');
 Route::post('/verificarCiclo/{ciclo}&{anterior}','GenericController@checarCiclo');

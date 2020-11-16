@@ -589,7 +589,7 @@ class genericController extends Controller
     /* 
      * Función traeArbol: trae el arbol actual del usuario
      * pista Tommy
-     */
+     */ 
      public function traeArbol($usuario, $idMatriz) 
     {   
         $resultCiclo = "";
