@@ -1,6 +1,6 @@
 @extends('layouts.master')
 
-@section('content') 
+@section('content')
 <div class="container-fluid"></br>
     <div class="row">
         <div class="col-md-12">
@@ -52,13 +52,12 @@
                                         <td>
                                             <form class="form-horizontal" method="POST" action="{{URL::to('master/vercomunidad')}}">
                                                 {{ csrf_field() }}
-                                                <input type="hidden" id="id" name="id" value="{{ $user['datos']->id }}">
+                                                <input type="hidden" name="id" value="{{ $user['datos']->id }}">
                                                 <button type="submit" class="btn btn-primary">Ver</button>
                                             </form>
                                         </td>
                                         <td>
                                             @if ($user['datos']->estatus==1)
-                                                
                                                 <button class="btn btn-primary disabled-user" data-id='{{ $user['datos']->id }}' data-name='{{$user['datos']->nombre}} {{$user['datos']->apellidoPaterno}} {{$user['datos']->apellidoMaterno}}'>Desactivar</button>
                                             @endif
                                             @if ($user['datos']->estatus==0)
@@ -71,7 +70,7 @@
                                         <td>
                                             <form class="form-horizontal" method="POST" action="{{URL::to('/master/edita')}}">
                                                 {{ csrf_field() }}
-                                                <input type="hidden" id="id" name="id" value="{{ $user['datos']->id }}">
+                                                <input type="hidden" name="id" value="{{ $user['datos']->id }}">
                                                 <button type="submit" class="btn btn-primary">Detalles</button>
                                             </form>
                                         </td>
@@ -100,58 +99,17 @@
 <script src="{{asset('js/dataTableMaster.js')}}"></script>
 <script>
     $( document ).ready( function(){
-
         let motivoCurrent = "";
-
         $( document ).on( "change", "#motivo", function(){
-
             motivoCurrent = $( this ).val();
-            console.log( "mtv => " + motivoCurrent );
+            //console.log( "mtv => " + motivoCurrent );
         });
 
-        $( ".disabled-user" ).click( function(){
-
+        $( ".disabled-user" ).click( function(){ 
             let user = $( this ).data( "name" );
             let userId = $( this ).data( "id" );
 
-            var motivo = document.createElement( "select" );
-            motivo.setAttribute("id", "motivo");
-            document.body.appendChild( motivo );
-
-            var z = document.createElement( "option" );
-            z.setAttribute( "value", "1" );
-            var t = document.createTextNode( "Vencimiento de suscripción" );
-            z.appendChild( t );
-
-            var zz = document.createElement( "option" );
-            zz.setAttribute( "value", "2" );
-            var tz = document.createTextNode( "Retiro y reembolso" );
-            zz.appendChild( tz );
-
-            var z3 = document.createElement( "option" );
-            z3.setAttribute( "value", "3" );
-            var t3 = document.createTextNode( "No desea continuar" );
-            z3.appendChild( t3 );
-
-            var z4 = document.createElement( "option" );
-            z4.setAttribute( "value", "4" );
-            var t4 = document.createTextNode( "No cumple obligaciones" );
-            z4.appendChild( t4 );
-
-            var z5 = document.createElement( "option" );
-            z5.setAttribute( "value", "5" );
-            var t5 = document.createTextNode( "Cuestiones éticas" );
-            z5.appendChild( t5 );
-
-            document.getElementById( "motivo" ).appendChild( z );
-            document.getElementById( "motivo" ).appendChild( zz );
-            document.getElementById( "motivo" ).appendChild( z3 );
-            document.getElementById( "motivo" ).appendChild( z4 );
-            document.getElementById( "motivo" ).appendChild( z5 );
-
-            motivo.type = "select";
-
-            swal({
+           swal({
                 title: "Esta seguro de querer desactivar a " + user + "?",
                 icon: "warning",
                 buttons: true,
@@ -162,11 +120,46 @@
                         swal("Eliminacion en proceso...", {
                         buttons: false,
                     });
-                    
                     window.location="/validarUsuario/" + userId + "/" + motivoCurrent;
                 }
             });
         });
+
+        var motivo = document.createElement( "select" );
+        motivo.setAttribute("id", "motivo");
+        document.body.appendChild( motivo );
+
+        var z = document.createElement( "option" );
+        z.setAttribute( "value", "1" );
+        var t = document.createTextNode( "Vencimiento de suscripción" );
+        z.appendChild( t );
+
+        var zz = document.createElement( "option" );
+        zz.setAttribute( "value", "2" );
+        var tz = document.createTextNode( "Retiro y reembolso" );
+        zz.appendChild( tz );
+
+        var z3 = document.createElement( "option" );
+        z3.setAttribute( "value", "3" );
+        var t3 = document.createTextNode( "No desea continuar" );
+        z3.appendChild( t3 );
+
+        var z4 = document.createElement( "option" );
+        z4.setAttribute( "value", "4" );
+        var t4 = document.createTextNode( "No cumple obligaciones" );
+        z4.appendChild( t4 );
+
+        var z5 = document.createElement( "option" );
+        z5.setAttribute( "value", "5" );
+        var t5 = document.createTextNode( "Cuestiones éticas" );
+        z5.appendChild( t5 );
+
+        document.getElementById( "motivo" ).appendChild( z );
+        document.getElementById( "motivo" ).appendChild( zz );
+        document.getElementById( "motivo" ).appendChild( z3 );
+        document.getElementById( "motivo" ).appendChild( z4 );
+        document.getElementById( "motivo" ).appendChild( z5 );
+        motivo.type = "select";
     });
 </script>
 @endsection

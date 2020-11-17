@@ -16,9 +16,11 @@ use App\beneficiarios;
 use App\PagosUsuarios;
 use Illuminate\Http\Request;
 use App\Mail\NotificaciónDeTarea;
+use App\Mail\PagoProcesado;
+use App\Mail\ActivacionDeTuCuenta;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
+use Illuminate\Support\Facades\Log;
 use App\Mail\CompletasteTuComunidad;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -55,14 +57,14 @@ class genericController extends Controller
         ciclo::create([
             'idUser' => $request->idUser,
             'idNodo' => $nodo->id,
-            'idMatriz' => $matrizBronce[0]->id,
+            'idMatriz' => $matrizBronce[0]->id, 
             'tipo' => 0,
         ]);
         $cicloPadre=ciclo::where('idUser','=',$user->padre)
                         ->where('idMatriz','=',1)
                         ->where('estatus','=',0)->first();
         //se inserta
-        $lleno=$this->inserta($cicloPadre->idNodo,$nodo);
+        $lleno=$this->inserta($cicloPadre->idNodo,$nodo); 
         $cicloPadre->tipo += 1;
         
         // la bandera lleno significa que la matriz se lleno y debe ciclar el padre
@@ -89,6 +91,23 @@ class genericController extends Controller
             $this->cicla($usercicla,$matrizBronce[0]->id);
             $this->salta($usercicla,$matrizBronce[0]->id); 
         }
+    }
+
+
+    public function revisaComunidad($ciclo, $nodo, $nodoInsertar){
+        $nodoFinal = null;
+        $existInCycle = $this->revisaCicloPadre($ciclo, $nodoInsertar->idUser);
+        if($existInCycle == true){
+            //Obtener el nodo superior
+            $tmpNodo = nodos::findOrFail($ciclo->idNodo);
+            $arriba = nodos::findOrFail($tmpNodo->idArriba);
+            //Obtener el ciclo de nodo
+            $ciclo = ciclo::where('idUser', $arriba->idUser)->where('idMatriz',1)->where('estatus',0)->first();
+            $nodoFinal = $this->revisaComunidad($ciclo, $nodo, $nodoInsertar);
+        }else{
+            $nodoFinal = nodos::findOrFail($ciclo->idNodo);
+        }
+        return $nodoFinal;
     }
 
     /*
@@ -135,8 +154,20 @@ class genericController extends Controller
             }   
             else{
                 if ( $nodoDerecha->idDerecha ==null){
-                    $nodoDerecha->idDerecha=$nodo->id;
-                    $nodo->idArriba=$nodoDerecha->id;
+                    //TODO:: AQUI Revisar que el nodo no exista en la comunidad 
+
+                    $cicloPadre=ciclo::where('idUser','=',$nodoDerecha->idUser)
+                        ->where('idMatriz','=',1)
+                        ->where('estatus','=',0)->first();
+
+                    $existInCycle = $this->revisaCicloPadre($cicloPadre, $nodo->idUser);
+                    if($existInCycle == true){
+                        $nodoFinal = $this->revisaComunidad($cicloPadre, $nodo, $nodo);
+                        $this->inserta($nodoFinal->id, $nodo);
+                    }else{
+                        $nodoDerecha->idDerecha=$nodo->id;
+                        $nodo->idArriba=$nodoDerecha->id;
+                    }
                 }
             }
             $nodoDerecha->save();
@@ -252,7 +283,7 @@ class genericController extends Controller
             if($lleno) {
                 $cicloPadre->estatus=1;
                 $cicloPadre->save();
-                $useralternativo=User::findOrFail($directo);
+                $useralternativo=User::findOrFail($directo); 
                 $this->cicla($useralternativo,$idMatriz);
                 $this->salta($useralternativo,$idMatriz); 
             }
@@ -261,7 +292,7 @@ class genericController extends Controller
         $cicla = $this->revisaArriba($nodo,$directo);
         if($cicla){
             $nodoArriba=nodos::findOrFail($nodo->idArriba);
-            $nodocicla=nodos::findOrFail($nodoArriba->idArriba);
+            $nodocicla=nodos::findOrFail($nodoArriba->idArriba); 
             $usercicla=User::findOrFail($nodocicla->idUser);
             $cicloUser=ciclo::where('idUser','=',$usercicla->id)
                         ->where('idMatriz','=',$idMatriz)
@@ -586,10 +617,10 @@ class genericController extends Controller
             $this->traeDescendencia($user,$users);
         }
     }
-    /* 
+    /*  
      * Función traeArbol: trae el arbol actual del usuario
      * pista Tommy
-     */ 
+     */
      public function traeArbol($usuario, $idMatriz) 
     {   
         $resultCiclo = "";
@@ -654,177 +685,94 @@ class genericController extends Controller
     }
 
      /*Arreglo de acomodo de posiciones en comunidad - No duplica posición en comunidad*/
-    public function llenaArbol( $nodo )
-{
-log::info( "Error al buscar al usuario en matrices => " . print_r( $nodo, true ) );
+     public function llenaArbol($nodo)
+     {
+         $empty = new User([
+             'id'              => -1,
+             'nombre'          => '',
+             'nickname'        => '',
+             'email'           => '',
+             'password'        => '',
+             'apellidoPaterno' => '',
+             'apellidoMaterno' => '',
+             'calle'           => '',
+             'numero'          => '',
+             'colonia'         => '',
+             'codigoPostal'    => '',
+             'idEstado'        => 0,
+             'idMunicipio'     => 0,
+             'telefono'        => '',
+             'rfc'             => '',
+             'curp'            => '',
+             'rol'             => 0,
+             'padre'           => -1,
+             'otraMatriz'      => 0,
+             'estatus'         => 33,
+         ]);
+         $userInsertar         = User::where('id', '=', $nodo->idUser)->first();
+         $userInsertar["nodo"] = $nodo->id;
+         $users[]              = $userInsertar;
+         if($nodo->idIzquierda == null){
+             $users[] = $empty;
+             $users[] = $empty;
+             $users[] = $empty;
+         }
+         else{
+             $nodoIzquierda        = nodos::where('id', '=', $nodo->idIzquierda)    ->first();
+             $userInsertar         = User::where('id',  '=', $nodoIzquierda->idUser)->first();
+             $userInsertar["nodo"] = $nodo->idIzquierda;
+             $users[]              = $userInsertar;
+             if($nodoIzquierda->idIzquierda == null){
+                 $users[] = $empty;
+             }
+             else{
+                 $nodoIzquierda2       = nodos::where('id', '=', $nodoIzquierda->idIzquierda)->first();
+                 $userInsertar         = User::where('id',  '=', $nodoIzquierda2->idUser)    ->first();
+                 $userInsertar["nodo"] = $nodoIzquierda->idIzquierda;
+                 $users[]              = $userInsertar;
+             }
+             if($nodoIzquierda->idDerecha == null ){
+                 $users[] = $empty;
+             }
+             else{
+                 $nodoIzquierda2       = nodos::where('id', '=', $nodoIzquierda->idDerecha)->first();
+                 $userInsertar         = User::where('id',  '=', $nodoIzquierda2->idUser)  ->first();
+                 $userInsertar["nodo"] = $nodoIzquierda->idDerecha;
+                 $users[]              = $userInsertar;
+             }
+         }
+         if($nodo->idDerecha == null){
+             $users[] = $empty;
+             $users[] = $empty;
+             $users[] = $empty;
+         }
+         else{
+             $nodoDerecha          = nodos::where('id', '=', $nodo->idDerecha)    ->first();
+             $userInsertar         = User::where('id',  '=', $nodoDerecha->idUser)->first();
+             $userInsertar["nodo"] = $nodo->idDerecha;
+             $users[]              = $userInsertar;
+ 
+             if($nodoDerecha->idIzquierda == null){
+                 $users[] = $empty;
+             }else{
+                 $nodoDerecha2         = nodos::where('id', '=', $nodoDerecha->idIzquierda)->first();
+                 $userInsertar         = User::where('id',  '=', $nodoDerecha2->idUser)    ->first();
+                 $userInsertar["nodo"] = $nodoDerecha->idIzquierda;
+                 $users[]              = $userInsertar;
+             }
+ 
+             if($nodoDerecha->idDerecha == null) {
+                 $users[] = $empty;
+             }else{
+                 $nodoDerecha2         = nodos::where('id', '=', $nodoDerecha->idDerecha)->first();
+                 $userInsertar         = User::where('id',  '=', $nodoDerecha2->idUser)  ->first();
+                 $userInsertar["nodo"] = $nodoDerecha->idDerecha;
+                 $users[]              = $userInsertar;
+             }
+         }
+         return json_encode($users);
+     }
 
-$empty = new User([
-'id' => -1,
-'nombre' => '',
-'nickname' => '',
-'email' => '',
-'password' => '',
-'apellidoPaterno' => '',
-'apellidoMaterno' => '',
-'calle' => '',
-'numero' => '',
-'colonia' => '',
-'codigoPostal' => '',
-'idEstado' => 0,
-'idMunicipio' => 0,
-'telefono' => '',
-'rfc' => '',
-'curp' => '',
-'rol' => 0,
-'padre' => -1,
-'otraMatriz' => 0,
-'estatus' => 33,
-]);
-
-if( !empty( $nodo ) ){
-
-$userInsertar = User::where('id', '=', $nodo->idUser)->first();
-$userInsertar["nodo"] = $nodo->id;
-//Primer nodo
-$users[] = $userInsertar;
-if($nodo->idIzquierda == null){
-$users[] = $empty;
-$users[] = $empty;
-$users[] = $empty;
-}
-else{
-$nodoIzquierda = nodos::where('id', '=', $nodo->idIzquierda) ->first();
-$userInsertar = User::where('id', '=', $nodoIzquierda->idUser)->first();
-$userInsertar["nodo"] = $nodo->idIzquierda;
-$flag = 0;
-foreach ($users as &$user) {
-if ($user->id == $userInsertar->id) {
-$flag = 1;
-}
-}
-
-if ($flag == 0) {
-$users[] = $userInsertar;
-}else{
-$users[] = $empty;
-}
-
-if($nodoIzquierda->idIzquierda == null){
-$users[] = $empty;
-}
-else{
-$nodoIzquierda2 = nodos::where('id', '=', $nodoIzquierda->idIzquierda)->first();
-$userInsertar = User::where('id', '=', $nodoIzquierda2->idUser) ->first();
-$userInsertar["nodo"] = $nodoIzquierda->idIzquierda;
-// Tercero
-$flag = 0;
-foreach ($users as &$user) {
-if ($user->id == $userInsertar->id) {
-$flag = 1;
-}
-}
-
-if ($flag == 0) {
-$users[] = $userInsertar;
-}else{
-$users[] = $empty;
-}
-}
-if($nodoIzquierda->idDerecha == null ){
-$users[] = $empty;
-}
-else{
-$nodoIzquierda2 = nodos::where('id', '=', $nodoIzquierda->idDerecha)->first();
-$userInsertar = User::where('id', '=', $nodoIzquierda2->idUser) ->first();
-$userInsertar["nodo"] = $nodoIzquierda->idDerecha;
-// Cuarto
-$flag = 0;
-foreach ($users as &$user) {
-if ($user->id == $userInsertar->id) {
-$flag = 1;
-}
-}
-
-if ($flag == 0) {
-$users[] = $userInsertar;
-}else{
-$users[] = $empty;
-}
-}
-}
-if($nodo->idDerecha == null){
-$users[] = $empty;
-$users[] = $empty;
-$users[] = $empty;
-}
-else{
-$nodoDerecha = nodos::where('id', '=', $nodo->idDerecha) ->first();
-$userInsertar = User::where('id', '=', $nodoDerecha->idUser)->first();
-$userInsertar["nodo"] = $nodo->idDerecha;
-// Quinto
-$flag = 0;
-foreach ($users as &$user) {
-if ($user->id == $userInsertar->id) {
-$flag = 1;
-}
-}
-
-if ($flag == 0) {
-$users[] = $userInsertar;
-}else{
-$users[] = $empty;
-}
-
-if($nodoDerecha->idIzquierda == null){
-$users[] = $empty;
-}else{
-$nodoDerecha2 = nodos::where('id', '=', $nodoDerecha->idIzquierda)->first();
-$userInsertar = User::where('id', '=', $nodoDerecha2->idUser) ->first();
-$userInsertar["nodo"] = $nodoDerecha->idIzquierda;
-// Quinto
-$flag = 0;
-foreach ($users as &$user) {
-if ($user->id == $userInsertar->id) {
-$flag = 1;
-}
-}
-
-if ($flag == 0) {
-$users[] = $userInsertar;
-}else{
-$users[] = $empty;
-}
-}
-
-if($nodoDerecha->idDerecha == null) {
-$users[] = $empty;
-}else{
-$nodoDerecha2 = nodos::where('id', '=', $nodoDerecha->idDerecha)->first();
-$userInsertar = User::where('id', '=', $nodoDerecha2->idUser) ->first();
-$userInsertar["nodo"] = $nodoDerecha->idDerecha;
-// Sexto
-
-$flag = 0;
-foreach ($users as &$user) {
-if ($user->id == $userInsertar->id) {
-$flag = 1;
-}
-}
-
-if ($flag == 0) {
-$users[] = $userInsertar;
-}else{
-$users[] = $empty;
-}
-}
-}
-return json_encode($users);
-}
-else{
-
-return json_encode( array() );
-}
-}
 
 
     //tommy
@@ -832,35 +780,40 @@ return json_encode( array() );
     public function crearUsuarios(Request $request)
     {
         $padre=0;
-if($request->idPatrocinador!=''){
+if(!empty($request->idPatrocinador)){
     $padre=$request->idPatrocinador;
 }
         $user = User::where('email', '=', $request->email)->first();
         $userCurp = User::where('curp', '=', $request->curp)->first();
-        $pat = User::where('id', '=', $request->idPatrocinador)->first();
+        $pat = User::where('id', '=', $padre)->first();
 if ($userCurp === null) {
 if ($user === null) {
    // checar si correo existe en base de datos, si no existe crear usuario
     $caracteresPermitidos = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     $num=rand(3,4);
-    $apP=$pat->apellidoPaterno;
-    $apM=$pat->apellidoMaterno;
-    if (empty($apP)) {
+   
+    
+    if (empty($pat->apellidoPaterno)) {
        $apP=substr(str_shuffle($caracteresPermitidos), 0, 1);
+    }else{
+        $apP=$pat->apellidoPaterno;
     }
 
-    if (empty($apM)) {
+    if (empty($pat->apellidoMaterno)) {
        $apM=substr(str_shuffle($caracteresPermitidos), 0, 1);
+    }else{
+    $apM=$pat->apellidoMaterno;
     }
 $codigo1=$request->nombre[0].''.$request->apepaterno[0].''.$request->apematerno[0];
 if (!empty($apP)) {
-$codigo2=$apP[0].''.$apM[0].''.$pat->nombre[0];
+//$codigo2=$apP[0].''.$apM[0].''.$pat->nombre[0];
+$codigo2=$pat->nombre[0].''.$apP[0].''.$apM[0];
 }else{
    $codigo2=substr(str_shuffle($caracteresPermitidos), 0, 3); 
 }
 
-$codigo3=substr(str_shuffle($caracteresPermitidos), 0, $num);
-$codigo= $codigo1.'-'.$codigo2.'-'.$codigo3;
+$codigo3=substr(str_shuffle($caracteresPermitidos), 0, $num); 
+$codigo= $codigo2.'-'.$codigo1.'-'.$codigo3;
     $user = User::create([
         'nickname'=>$request->nombre[0].''.$apP,
             'nombre'=>$request->nombre,
@@ -892,7 +845,9 @@ $codigo= $codigo1.'-'.$codigo2.'-'.$codigo3;
         //$contenido= new Request;
         //$contenido['idUser']=$user->id;
         // app(\App\Http\Controllers\genericController::class)->insertaEnMatriz($contenido);
-        Mail::to($user->email)->send(new PreregistroCreandoCertezas ($user,$codigo,$request->email,$request->nombre));
+
+        //comentar Mail para evitar el envío de correos de prueba
+       Mail::to($user->email)->send(new PreregistroCreandoCertezas ($user,$codigo,$request->email,$request->nombre));
  return redirect()->back()->with('status','Pre-Registro creado con exito.');
         }
 
@@ -931,7 +886,7 @@ public function validar(){
             "users"=>  $users,
         ]);
     }
-
+ 
 
     public function eliminarU($id){ 
         //condicion para poder elimiar registro de pre-registro
@@ -964,7 +919,6 @@ public function validarU($id, $motivo = null){
     $id = (int) $id;
     $user=User::where('id','=',$id)->first();
     $where = array('id' => $id);
-
     if($user->estatus==1){
         $updateArr = ['estatus' => 0];
     // Mauricio
@@ -1011,7 +965,7 @@ public function validarU($id, $motivo = null){
         $subscribetion = Subscription::create([
             'id_user'=>$id,
                 'amount'=>$amount,
-                'id_matriz'=>$matriz->idMatriz,
+                'id_matriz'=>$matriz->idMatriz, 
             ]);
     }
     $pago=$amount;
@@ -1019,10 +973,11 @@ public function validarU($id, $motivo = null){
     $contacto = User::where( "id","=",$id)->get();
     foreach ($contacto as $contt) {
        if ($contt->email!='') {
-        $titulo='titulo mensaje';
-        $mensaje='Texto del mensaje a enviar';
+        $titulo='Activación de Cuenta';
+        $mensaje='Activado';
         
-         Mail::to($contt->email)->send(new NotificaciónDeTarea($titulo,$mensaje,$pago,$contt));
+        //comentar Mail para no enviar correos de pruebas
+        Mail::to($contt->email)->send(new ActivacionDeTuCuenta($titulo,$mensaje,$pago,$contt));
        }
     }
     return redirect()->back()->with('status','Pre-Registro validado con exito.');
@@ -1082,11 +1037,16 @@ public function validarU($id, $motivo = null){
        return Response(json_encode($data));
 }
 
-public function registrarPago($id){
+public function registrarPago($id,$amount){
+    $pago=PagosUsuarios::find($id);
+    $user=User::find($pago->user_id);
     $where = array('id' => $id);
     $updateArr = ['estatus' => 1];
+    $titulo='Su pago ha sido procesado.';
+    $mensaje='Felicidades!!! Hemos realizado el pago correspondiente por haber completado tu comunidad.';
     $event  = PagosUsuarios::where($where)->update($updateArr);
-    return redirect()->back()->with('status','Pago Procesado');
+    Mail::to($user->email)->send(new PagoProcesado ($titulo,$mensaje,$amount,$user));
+    return redirect()->back()->with('status','Pago Procesado'); 
  
 }
 
@@ -2203,21 +2163,7 @@ foreach($ciclos as $ciclo){
 }
 //}
 
-
-
-
-
-
-
-
-
-
-
-
-   
 }
-
-
 
 public function edita()
 {

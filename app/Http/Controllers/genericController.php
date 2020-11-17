@@ -14,17 +14,19 @@ use App\userMatriz;
 use App\Subscription;
 use App\beneficiarios;
 use App\PagosUsuarios;
+use App\Mail\PagoProcesado;
 use Illuminate\Http\Request;
 use App\Mail\NotificaciónDeTarea;
-use App\Mail\PagoProcesado;
 use App\Mail\ActivacionDeTuCuenta;
-use Illuminate\Support\Facades\DB;
+use App\Mail\NotificaciónDeCrecer;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Mail\CompletasteTuComunidad;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PreregistroCreandoCertezas;
+use App\Mail\NotificacionCreandoCertezas;
 
 class genericController extends Controller
 {
@@ -57,7 +59,7 @@ class genericController extends Controller
         ciclo::create([
             'idUser' => $request->idUser,
             'idNodo' => $nodo->id,
-            'idMatriz' => $matrizBronce[0]->id, 
+            'idMatriz' => $matrizBronce[0]->id,
             'tipo' => 0,
         ]);
         $cicloPadre=ciclo::where('idUser','=',$user->padre)
@@ -780,25 +782,29 @@ class genericController extends Controller
     public function crearUsuarios(Request $request)
     {
         $padre=0;
-if($request->idPatrocinador!=''){
+if(!empty($request->idPatrocinador)){
     $padre=$request->idPatrocinador;
 }
         $user = User::where('email', '=', $request->email)->first();
         $userCurp = User::where('curp', '=', $request->curp)->first();
-        $pat = User::where('id', '=', $request->idPatrocinador)->first();
+        $pat = User::where('id', '=', $padre)->first();
 if ($userCurp === null) {
 if ($user === null) {
    // checar si correo existe en base de datos, si no existe crear usuario
     $caracteresPermitidos = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     $num=rand(3,4);
-    $apP=$pat->apellidoPaterno;
-    $apM=$pat->apellidoMaterno;
-    if (empty($apP)) {
+   
+    
+    if (empty($pat->apellidoPaterno)) {
        $apP=substr(str_shuffle($caracteresPermitidos), 0, 1);
+    }else{
+        $apP=$pat->apellidoPaterno;
     }
 
-    if (empty($apM)) {
+    if (empty($pat->apellidoMaterno)) {
        $apM=substr(str_shuffle($caracteresPermitidos), 0, 1);
+    }else{
+    $apM=$pat->apellidoMaterno;
     }
 $codigo1=$request->nombre[0].''.$request->apepaterno[0].''.$request->apematerno[0];
 if (!empty($apP)) {
@@ -910,7 +916,7 @@ public function validar(){
         }
     }
 
-public function validarU($id, $motivo = null){
+public function validarU($id, $motivo=null){
 
     $id = (int) $id;
     $user=User::where('id','=',$id)->first();
@@ -935,6 +941,11 @@ public function validarU($id, $motivo = null){
         $newBajas->motivo = $motivo;
         $newBajas->created_at = date( "Y-m-d H:i:s" );
         $newBajas->save();
+        $titulo='titulo';
+        $mensaje=$motivo;
+
+        Mail::to($user->email)->send(new NotificacionCreandoCertezas ($titulo,$mensaje,$user));
+      
     }
 
     // Mauricio
@@ -1039,10 +1050,10 @@ public function registrarPago($id,$amount){
     $where = array('id' => $id);
     $updateArr = ['estatus' => 1];
     $titulo='Su pago ha sido procesado.';
-    $mensaje='Felicidades!!! Hemos realizado el pago correspondiente por haber completado tu comunidad.';
+    $mensaje='Ejemplo de mensaje';
     $event  = PagosUsuarios::where($where)->update($updateArr);
     Mail::to($user->email)->send(new PagoProcesado ($titulo,$mensaje,$amount,$user));
-    return redirect()->back()->with('status','Pago Procesado'); 
+    return redirect()->back()->with('status','Pago Procesado');
  
 }
 

@@ -10,9 +10,6 @@
     <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/ico">
     <title>{{ config('app.name', 'Creando certezas') }}</title>
 
-    <!--script para buscar codigo del patrocinador -->
-    <script src="{{asset('js/codeSponsor.js')}}"></script>
-
     <!-- Styles -->
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{asset('css/plugins/dataTables/datatables.min.css')}}"/>
@@ -20,7 +17,7 @@
     <link href="{{asset('css/bootstrap.min.css')}}" rel="stylesheet">
     <link href="{{asset('font-awesome/css/font-awesome.css')}}" rel="stylesheet">
      <!-- sweetalert-->
-    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+    
    
     <!-- Morris -->
     <link href="{{asset('css/plugins/morris/morris-0.4.3.min.css')}}" rel="stylesheet">
@@ -32,12 +29,19 @@
     <link rel="stylesheet" href="{{asset('treant/collapsable.css')}}">
     <link rel="stylesheet" href="{{asset('treant/perfect-scrollbar.css')}}">
     
-     <!--Mainly scripts -->
+    
 
     <script  type="text/javascript" src="{{asset('js/jquery-2.1.1.js')}}"></script>
     <script src="{{asset('js/bootstrap.min.js')}}"></script>
     <script src="{{asset('js/plugins/metisMenu/jquery.metisMenu.js')}}"></script>
     <script src="{{asset('js/plugins/slimscroll/jquery.slimscroll.min.js')}}"></script>
+
+    <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+
+    <!--script para buscar codigo del patrocinador -->
+    <script src="{{asset('js/codeSponsor.js')}}"></script>
+
+     <!--Mainly scripts -->
 
     <!-- Flot -->
     <script src="{{asset('js/plugins/flot/jquery.flot.js')}}"></script>
@@ -207,3 +211,4 @@
     </div>
 </body>
 </html>
+
