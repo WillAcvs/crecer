@@ -18,7 +18,7 @@ use App\Mail\PagoProcesado;
 use Illuminate\Http\Request;
 use App\Mail\NotificaciónDeTarea;
 use App\Mail\ActivacionDeTuCuenta;
-use App\Mail\NotificaciónDeCrecer;
+use App\Mail\NotificacionDeCrecer;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -923,37 +923,41 @@ public function validarU($id, $motivo=null){
     $where = array('id' => $id);
     if($user->estatus==1){
         $updateArr = ['estatus' => 0];
-    // Mauricio
-    }
-    elseif ($user->estatus==0){
-        $nodoCiclo=nodos::where('idUser','=',$id)->first();
-        if($nodoCiclo == null) {
-            $contenido= new Request;
-            $contenido['idUser']=$id;
-            app(\App\Http\Controllers\genericController::class)->insertaEnMatriz($contenido);
+        switch ($motivo) {
+            case 0:
+                $motivo='Vencimiento de suscripción';
+                  break;
+            case 1:
+              $motivo='Vencimiento de suscripción';
+                break;
+            case 2:
+             $motivo='Retiro Voluntario';
+                break;
+            case 3:
+             $motivo='No desea continuar';
+                break;
+            case 4:
+             $motivo='No cumple obligaciones';
+               break;
+            case 5:
+            $motivo='Cuestiones éticas';
+               break;
         }
-    }
-
-    if( !empty( $motivo ) ){
-
         $newBajas = new bajas;
         $newBajas->idUser = $id;
         $newBajas->motivo = $motivo;
         $newBajas->created_at = date( "Y-m-d H:i:s" );
         $newBajas->save();
-        $titulo='titulo';
+        $titulo='Tu cuenta ha sido Desactivada';
         $mensaje=$motivo;
-
         Mail::to($user->email)->send(new NotificacionCreandoCertezas ($titulo,$mensaje,$user));
-      
-    }
 
-    // Mauricio
-    $amount=150;
-    if($user->estatus==0){
+    }
+    else{
+          // Mauricio
+        $amount=150;
         $updateArr = ['estatus' => 1];
         $matriz = userMatriz::where('idUser','=',$id)->orderBy('id','desc')->first();
-      
         if($matriz->idMatriz==2){
             $amount=300;   
         }
@@ -969,24 +973,28 @@ public function validarU($id, $motivo=null){
         if($matriz->idMatriz==6){
             $amount=7500;   
         }
-        $subscribetion = Subscription::create([
+        $subscription = Subscription::create([
             'id_user'=>$id,
                 'amount'=>$amount,
                 'id_matriz'=>$matriz->idMatriz, 
             ]);
-    }
-    $pago=$amount;
-    $event  = User::where($where)->update($updateArr);
-    $contacto = User::where( "id","=",$id)->get();
-    foreach ($contacto as $contt) {
-       if ($contt->email!='') {
-        $titulo='Activación de Cuenta';
-        $mensaje='Activado';
         
-        //comentar Mail para no enviar correos de pruebas
-        Mail::to($contt->email)->send(new ActivacionDeTuCuenta($titulo,$mensaje,$pago,$contt));
-       }
+   
+        $pago=$amount;
+        $nodoCiclo=nodos::where('idUser','=',$id)->first();
+        if($nodoCiclo == null) {
+            $contenido= new Request;
+            $contenido['idUser']=$id; 
+            app(\App\Http\Controllers\genericController::class)->insertaEnMatriz($contenido);
+        }
+        if ($user->email!='') {
+            $titulo='Activación de Cuenta';
+            $mensaje='Activado';       
+            //comentar Mail para no enviar correos de pruebas
+             Mail::to($user->email)->send(new ActivacionDeTuCuenta($titulo,$mensaje,$pago,$user));
+           }
     }
+    $event  = User::where($where)->update($updateArr);
     return redirect()->back()->with('status','Pre-Registro validado con exito.');
     }
 

@@ -26,7 +26,7 @@ public $user;
         $this->titulo = $titulo;
         $this->mensaje = $mensaje;
         $this->pago = $pago;
-        $this->user = $user;
+        $this->user = $user; 
     }
     /**
      * Build the message.

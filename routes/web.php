@@ -19,19 +19,19 @@ Route::get('/', function () {
 });
 //tommy  
  
-Route::post('/crear','GenericController@crearUsuarios');
-Route::post('/datosPatrocinador','GenericController@datos');
-Route::post('/verificarCiclo/{ciclo}&{anterior}','GenericController@checarCiclo');
-Route::get('/habilitar','GenericController@validar');
-Route::get('/eliminarUsuario/{id}','GenericController@eliminarU');
-Route::get('/validarUsuario/{id}/{motivo?}','GenericController@validarU');
-Route::get('/crearDispersion','GenericController@crearDispersion');
-Route::get('/listarPagos/{estatus}','GenericController@listarPagos');
-Route::get('/listarPagos','GenericController@listarPagos1');
-Route::get('/procesarPago/{id}&{amount}','GenericController@registrarPago');
-Route::get('/perfil','GenericController@editar');
+Route::post('/crear','genericController@crearUsuarios');
+Route::post('/datosPatrocinador','genericController@datos');
+Route::post('/verificarCiclo/{ciclo}&{anterior}','genericController@checarCiclo');
+Route::get('/habilitar','genericController@validar');
+Route::get('/eliminarUsuario/{id}','genericController@eliminarU');
+Route::get('/validarUsuario/{id}/{motivo?}','GenericController@validarU'); //Checar la G de GenericController si es mayuscula envia el correo correcto pero si es minuscula envía el otro correo que es el de activacion
+Route::get('/crearDispersion','genericController@crearDispersion');
+Route::get('/listarPagos/{estatus}','genericController@listarPagos');
+Route::get('/listarPagos','genericController@listarPagos1');
+Route::get('/procesarPago/{id}&{amount}','genericController@registrarPago');
+Route::get('/perfil','genericController@editar');
 
-Route::get('/editarPerfil','GenericController@edita');
+Route::get('/editarPerfil','genericController@edita');
 
 //tommy
 Auth::routes();

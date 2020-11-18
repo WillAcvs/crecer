@@ -56,7 +56,8 @@
                                     <td class="content-block">
                                         <h2>Estimad@ {{$user->nombre}} {{$user->apellidoPaterno}}</h2> 
 
-                                        <p>Su cuenta ha sido desactivada por el siguiente motivo:{{$mensaje}}</p>
+                                        <p>Tu cuenta ha sido desactivada por el siguiente motivo: <h3>{{$mensaje}}</h3></p>
+                                        <p>Por favor comunícate con tu patrocinador para ver las opciones disponibles para tu reactivación</p>
                                     
 
                                    
