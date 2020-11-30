@@ -31,7 +31,7 @@ Route::get('/listarPagos','genericController@listarPagos1');
 Route::get('/procesarPago/{id}&{amount}','genericController@registrarPago');
 Route::get('/perfil','genericController@editar');
 
-Route::get('/editarPerfil','genericController@edita');
+Route::get('/editarPerfil','genericController@edita'); 
 
 //tommy
 Auth::routes();
@@ -41,7 +41,7 @@ Route::get( 'genericController@insertaEnMatriz');
 Route::post('/traeArbolCiclo','genericController@traeArbolCiclo');
 Route::post('/traeArbolNodo','genericController@traeArbolNodo');
 Route::post('/traeArbol','genericController@traeArbol');
-Route::post('/subeArbol','genericController@subeArbol');
+Route::post('/subeArbol','genericController@subeArbol'); 
 Route::post('/traeCiclos','genericController@traeCiclos'); 
 Route::post('/traeDescendencia','genericController@traeDescendencia'); 
 Route::post('/guardaAsociado','genericController@guarda');
@@ -50,6 +50,8 @@ Route::group(['middleware' => ['auth','master'], 'prefix'=>'master'], function()
 		Route::resource('/', 'mastercontroller');
 
 		Route::post('crear','mastercontroller@store')->name('crear'); 
+		//Importar datos desde excel
+		Route::post('/importar','UserController@importExcel')->name('users.import.excel');
 
 		Route::get('/','mastercontroller@index');
 		Route::post('edita','mastercontroller@edita'); 
@@ -61,7 +63,7 @@ Route::group(['middleware' => ['auth','master'], 'prefix'=>'master'], function()
 
 		Route::post('guarda','mastercontroller@guarda')->name('guarda');
 		Route::resource('/matriz','ArbolController');
-		Route::post('/matriz/ver','ArbolController@ver')->name('ver');
+		Route::post('/matriz/ver','ArbolController@ver')->name('ver'); 
 }); 
 
 // Rol asociado

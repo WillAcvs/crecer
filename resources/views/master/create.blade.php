@@ -147,7 +147,47 @@
                                                         </form>
                                                     </div>
                                         </div>
-            </div>
+                                    </div>
+        
+        <!--Para importar Excel--> 
+                    
+                                                    <div class="panel-body">
+                                                        <div class="panel-heading"><label for="file">Seleccionar Archivo Excel a Importar</label></div>
+                    
+                                                        <!-- <form  class="form-material" action="/crear" method="post">-->
+                                                        <form action="{{ route('users.import.excel')}}" method="post" enctype="multipart/form-data">
+                                                            {{ csrf_field() }}
+                                                            @if(Session::has('message'))
+                                                            <p>{{ Session::get('message') }}</p>
+                                                            @endif
+                                                                <div class="form-row">
+                                                                        <div class="col-md-4 mb-3">
+                                                                            <input type="file" name="file">
+                                                                        </div>
+                                                                        <div class="col-md-4 mb-3">
+                                                                            <button class="btn btn-primary btn-block" type="submit">Importar Archivo Excel</button>
+                                                                        </div>
+                                                                        <div class="col-md-4 mb-3">
+                                                                        </div>
+                                                                        <div class="form-row">
+                                                                            <div class="col-md-6 mb-3">
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-3 mb-3">
+                                                                        </div>
+                                                                        <div class="col-md-3 mb-3">
+                                                                        </div>
+                                                                        <div class="container-fluid">
+                                                                            <div class="row">
+                                                                                <div class="col-md-8"><p>* Esta Función sólo importara los registros, debera activar a cada Usuario desde el menú <strong>Activar Usuario</strong> para iniciar en su comunidad correspondiente.</p></div>
+                                                                                <div class="col-md-4"></div>
+                                                                            </div>
+                                                                        </div>
+                                                        </form>
+                                                    </div>
+        <!--fin del formato para importar excel-->
+</div>
+
         </div>
     </div>
 </div>

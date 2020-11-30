@@ -14,19 +14,17 @@ use App\userMatriz;
 use App\Subscription;
 use App\beneficiarios;
 use App\PagosUsuarios;
-use App\Mail\PagoProcesado;
 use Illuminate\Http\Request;
 use App\Mail\NotificaciónDeTarea;
+use App\Mail\PagoProcesado;
 use App\Mail\ActivacionDeTuCuenta;
-use App\Mail\NotificacionDeCrecer;
-
 use Illuminate\Support\Facades\DB;
+
 use Illuminate\Support\Facades\Log;
 use App\Mail\CompletasteTuComunidad;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PreregistroCreandoCertezas;
-use App\Mail\NotificacionCreandoCertezas;
 
 class genericController extends Controller
 {
@@ -59,13 +57,14 @@ class genericController extends Controller
         ciclo::create([
             'idUser' => $request->idUser,
             'idNodo' => $nodo->id,
-            'idMatriz' => $matrizBronce[0]->id,
+            'idMatriz' => $matrizBronce[0]->id, 
             'tipo' => 0,
         ]);
         $cicloPadre=ciclo::where('idUser','=',$user->padre)
                         ->where('idMatriz','=',1)
                         ->where('estatus','=',0)->first();
         //se inserta
+        //print_r($cicloPadre)
         $lleno=$this->inserta($cicloPadre->idNodo,$nodo); 
         $cicloPadre->tipo += 1;
         
@@ -96,7 +95,7 @@ class genericController extends Controller
     }
 
 
-    public function revisaComunidad($ciclo, $nodo, $nodoInsertar){
+    public function revisaComunidad($ciclo, $nodo, $nodoInsertar){ 
         $nodoFinal = null;
         $existInCycle = $this->revisaCicloPadre($ciclo, $nodoInsertar->idUser);
         if($existInCycle == true){
@@ -110,6 +109,7 @@ class genericController extends Controller
             $nodoFinal = nodos::findOrFail($ciclo->idNodo);
         }
         return $nodoFinal;
+        
     }
 
     /*
@@ -125,6 +125,7 @@ class genericController extends Controller
                 $nodoCiclo->idDerecha=$nodo->id;
                 $nodo->idArriba=$nodoCiclo->id;
                 $insertaAqui=true;
+                
             }
             if($insertaAqui==null) {
                 $nodoIzquierda=nodos::where('id','=',$nodoCiclo->idIzquierda)->first();
@@ -135,9 +136,25 @@ class genericController extends Controller
                 }
                 else{
                     if ($nodoIzquierda->idDerecha == null) {
-                        $nodoIzquierda->idDerecha=$nodo->id;
-                        $nodo->idArriba=$nodoIzquierda->id;
-                        $insertaAqui=true;
+                        //TODO:: AQUI Revisar que el nodo no exista en la comunidad
+                        
+                        $nodoUp = nodos::find($nodoIzquierda->idArriba);
+
+                        $cicloPadre=ciclo::where('idUser','=',$nodoUp->idUser)
+                        ->where('idMatriz','=',1)
+                        ->where('estatus','=',0)->first();
+
+
+
+                        $existInCycle = $this->revisaCicloPadre($cicloPadre, $nodo->idUser);
+                        if($existInCycle == true){
+                            $nodoFinal = $this->revisaComunidad($cicloPadre, $nodo, $nodo);
+                            $this->inserta($nodoFinal->id, $nodo);
+                        }else{
+                            $nodoIzquierda->idDerecha=$nodo->id;
+                            $nodo->idArriba=$nodoIzquierda->id;
+                            $insertaAqui=true;
+                        }
                     }
                 }
                 $nodoIzquierda->save();    
@@ -220,24 +237,11 @@ class genericController extends Controller
                 ]);
         if($userCicla->id == 0){
             if($idMatriz == 1){
-                // Mauricio Cicla
-                //Cicla para colocarse primero debajo de la persona que ocupa la posición 3 
-                
-                // Averiguamos ciclo actual cerrado del usuario para saber el nodo
-                $cicloActual=ciclo::where([['idUser','=',$userCicla->id],['estatus','=',1]])->orderBy('updated_at', 'DESC')->first();
-                // Buscamos primer nivel
-                $nivelUno=nodos::where('id','=',$cicloActual->idNodo)->first();
-                // Buscar el id del nodo segundo nivel
-                $refNivelDos=nodos::where('id','=',$nivelUno->idIzquierda)->first();
-                // Nivel donde se colocara el siguiente MASTER ES DIFERENTE A UN USUARIO NORMAL
-                $nivelDos=nodos::where('id','=',$refNivelDos->idIzquierda)->first();
-
-                $cicloPadre=ciclo::where('idUser','=',$nivelDos->idUser)
-                
-                // $cicloPadre=ciclo::where('idUser','=',$userCicla->sigueA)
+                $cicloPadre=ciclo::where('idUser','=',$userCicla->sigueA)
                             ->where('idMatriz','=',$idMatriz)
                             ->where('estatus','=',0)->first();
                 $lleno=$this->inserta($cicloPadre->idNodo,$nodo);
+                
                 $cicloPadre->tipo += 1;
                 switch ($userCicla->sigueA) {
                     case 3:
@@ -285,7 +289,7 @@ class genericController extends Controller
             if($lleno) {
                 $cicloPadre->estatus=1;
                 $cicloPadre->save();
-                $useralternativo=User::findOrFail($directo); 
+                $useralternativo=User::findOrFail($directo);
                 $this->cicla($useralternativo,$idMatriz);
                 $this->salta($useralternativo,$idMatriz); 
             }
@@ -294,7 +298,7 @@ class genericController extends Controller
         $cicla = $this->revisaArriba($nodo,$directo);
         if($cicla){
             $nodoArriba=nodos::findOrFail($nodo->idArriba);
-            $nodocicla=nodos::findOrFail($nodoArriba->idArriba); 
+            $nodocicla=nodos::findOrFail($nodoArriba->idArriba);
             $usercicla=User::findOrFail($nodocicla->idUser);
             $cicloUser=ciclo::where('idUser','=',$usercicla->id)
                         ->where('idMatriz','=',$idMatriz)
@@ -329,7 +333,7 @@ class genericController extends Controller
      */
     public function ciclaMaster($nodo,$idMatriz)
     {
-        $Master=User::where('id','=',0)->first();
+        $Master=User::where('id','=',0)->first(); 
         $cadenaControl=$Master->otraMatriz;
         switch ($idMatriz) {
             case 2:
@@ -460,11 +464,11 @@ class genericController extends Controller
                             }
                         }
                     }
-                    if(($ciclo1Directo > 0 && $ciclo2Directo > 0) || $ciclo2Directo > 1 ){
+                    if(($ciclo1Directo > 1 && $ciclo2Directo > 1) || $ciclo2Directo >= 2 ){  //Se cambio el valor para evitar que cambia a plata con solo un directo la condicion original era if(($ciclo1Directo > 0 && $ciclo2Directo > 0) || $ciclo2Directo > 1 )
                         $nodo = nodos::create([
                                 'idUser' => $userSalta->id,
                                 'idArriba' =>0,
-                                ]);
+                                ]); 
                         $matriz= $idMatriz+1;
                         $ciclo= ciclo::create([
                                 'idUser' => $userSalta->id,
@@ -686,7 +690,7 @@ class genericController extends Controller
         return json_encode($valores);
     }
 
-     /*Arreglo de acomodo de posiciones en comunidad - No duplica posición en comunidad*/
+     
      public function llenaArbol($nodo)
      {
          $empty = new User([
@@ -782,9 +786,12 @@ class genericController extends Controller
     public function crearUsuarios(Request $request)
     {
         $padre=0;
+     
+      
 if(!empty($request->idPatrocinador)){
     $padre=$request->idPatrocinador;
 }
+
         $user = User::where('email', '=', $request->email)->first();
         $userCurp = User::where('curp', '=', $request->curp)->first();
         $pat = User::where('id', '=', $padre)->first();
@@ -817,7 +824,7 @@ $codigo2=$pat->nombre[0].''.$apP[0].''.$apM[0];
 $codigo3=substr(str_shuffle($caracteresPermitidos), 0, $num); 
 $codigo= $codigo2.'-'.$codigo1.'-'.$codigo3;
     $user = User::create([
-        'nickname'=>$request->nombre[0].''.$apP,
+            'nickname'=>$request->nombre[0].''.$apP,
             'nombre'=>$request->nombre,
             'email'=>$request->email,
             'apellidoPaterno'=>$request->apepaterno,
@@ -843,13 +850,9 @@ $codigo= $codigo2.'-'.$codigo1.'-'.$codigo3;
             'estatus'=> 1
         ]);
         
-        //Mauricio
-        //$contenido= new Request;
-        //$contenido['idUser']=$user->id;
-        // app(\App\Http\Controllers\genericController::class)->insertaEnMatriz($contenido);
-
+       
         //comentar Mail para evitar el envío de correos de prueba
-       Mail::to($user->email)->send(new PreregistroCreandoCertezas ($user,$codigo,$request->email,$request->nombre));
+      // Mail::to($user->email)->send(new PreregistroCreandoCertezas ($user,$codigo,$request->email,$request->nombre));
  return redirect()->back()->with('status','Pre-Registro creado con exito.');
         }
 
@@ -888,7 +891,7 @@ public function validar(){
             "users"=>  $users,
         ]);
     }
-
+ 
 
     public function eliminarU($id){ 
         //condicion para poder elimiar registro de pre-registro
@@ -906,58 +909,43 @@ public function validar(){
         else{
 
             return redirect()->back()->with( 'status','El usuario ' . $user->nombre . ' ' . $user->apellidoPaterno . ' ' . $user->apellidoMaterno . ' ya ha sido inactivo' );
-            /*app(\App\Http\Controllers\UserMatrizController::class)->removerUsuario($user);
-            $event = User::where('id',$id)->delete();
-            $where = array('padre' => $id);
-            $updateArr = ['padre' => 0];
-            $event  = User::where($where)->update($updateArr);
-            $event = Subscription::where('id_user',$id)->delete();
-            return redirect()->back()->with('status','Pre-Registro eliminado.');*/
+      
         }
     }
 
-public function validarU($id, $motivo=null){
+public function validarU($id, $motivo = null){
 
     $id = (int) $id;
     $user=User::where('id','=',$id)->first();
     $where = array('id' => $id);
     if($user->estatus==1){
         $updateArr = ['estatus' => 0];
-        switch ($motivo) {
-            case 0:
-                $motivo='Vencimiento de suscripción';
-                  break;
-            case 1:
-              $motivo='Vencimiento de suscripción';
-                break;
-            case 2:
-             $motivo='Retiro Voluntario';
-                break;
-            case 3:
-             $motivo='No desea continuar';
-                break;
-            case 4:
-             $motivo='No cumple obligaciones';
-               break;
-            case 5:
-            $motivo='Cuestiones éticas';
-               break;
+    // Mauricio
+    }
+    elseif ($user->estatus==0){
+        $nodoCiclo=nodos::where('idUser','=',$id)->first();
+        if($nodoCiclo == null) {
+            $contenido= new Request;
+            $contenido['idUser']=$id;
+            app(\App\Http\Controllers\genericController::class)->insertaEnMatriz($contenido);
         }
+    }
+
+    if( !empty( $motivo ) ){
+
         $newBajas = new bajas;
         $newBajas->idUser = $id;
         $newBajas->motivo = $motivo;
         $newBajas->created_at = date( "Y-m-d H:i:s" );
         $newBajas->save();
-        $titulo='Tu cuenta ha sido Desactivada';
-        $mensaje=$motivo;
-        Mail::to($user->email)->send(new NotificacionCreandoCertezas ($titulo,$mensaje,$user));
-
     }
-    else{
-          // Mauricio
-        $amount=150;
+
+    // Mauricio
+    $amount=150;
+    if($user->estatus==0){
         $updateArr = ['estatus' => 1];
         $matriz = userMatriz::where('idUser','=',$id)->orderBy('id','desc')->first();
+      
         if($matriz->idMatriz==2){
             $amount=300;   
         }
@@ -973,28 +961,24 @@ public function validarU($id, $motivo=null){
         if($matriz->idMatriz==6){
             $amount=7500;   
         }
-        $subscription = Subscription::create([
+        $subscribetion = Subscription::create([
             'id_user'=>$id,
                 'amount'=>$amount,
                 'id_matriz'=>$matriz->idMatriz, 
             ]);
-        
-   
-        $pago=$amount;
-        $nodoCiclo=nodos::where('idUser','=',$id)->first();
-        if($nodoCiclo == null) {
-            $contenido= new Request;
-            $contenido['idUser']=$id; 
-            app(\App\Http\Controllers\genericController::class)->insertaEnMatriz($contenido);
-        }
-        if ($user->email!='') {
-            $titulo='Activación de Cuenta';
-            $mensaje='Activado';       
-            //comentar Mail para no enviar correos de pruebas
-             Mail::to($user->email)->send(new ActivacionDeTuCuenta($titulo,$mensaje,$pago,$user));
-           }
     }
+    $pago=$amount;
     $event  = User::where($where)->update($updateArr);
+    $contacto = User::where( "id","=",$id)->get();
+    foreach ($contacto as $contt) {
+       if ($contt->email!='') {
+        $titulo='Activación de Cuenta';
+        $mensaje='Activado';
+        
+        //comentar Mail para no enviar correos de pruebas
+        Mail::to($contt->email)->send(new ActivacionDeTuCuenta($titulo,$mensaje,$pago,$contt));
+       }
+    }
     return redirect()->back()->with('status','Pre-Registro validado con exito.');
     }
 
@@ -1058,10 +1042,10 @@ public function registrarPago($id,$amount){
     $where = array('id' => $id);
     $updateArr = ['estatus' => 1];
     $titulo='Su pago ha sido procesado.';
-    $mensaje='Ejemplo de mensaje';
+    $mensaje='Felicidades!!! Hemos realizado el pago correspondiente por haber completado tu comunidad.';
     $event  = PagosUsuarios::where($where)->update($updateArr);
     Mail::to($user->email)->send(new PagoProcesado ($titulo,$mensaje,$amount,$user));
-    return redirect()->back()->with('status','Pago Procesado');
+    return redirect()->back()->with('status','Pago Procesado'); 
  
 }
 

@@ -35,7 +35,7 @@ class arbolasociadocontroller extends Controller
     public function verMatriz()
     {
     	return view('verMatriz');
-    }
+    } 
      /**
      * Display a listing of the resource.
      *

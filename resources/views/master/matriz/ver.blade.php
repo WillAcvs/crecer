@@ -256,7 +256,7 @@
                     </div>
                     </div>
                     <div class="ibox-content">
-                        <span style="font-size: 11px;">Total de comisiones <span style="float:right; font-size: 11px;" id="spanTotal">2</span></span>
+                        <span style="font-size: 11px;">Total de comisiones <span style="float:right; font-size: 11px;" id="spanTotal">2</span></span> 
                     </div>
                     
                 </div>

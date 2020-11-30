@@ -105,7 +105,7 @@
             //console.log( "mtv => " + motivoCurrent );
         });
 
-        $( ".disabled-user" ).click( function(){ 
+        $( document ).on( "click", ".disabled-user", function(){
             let user = $( this ).data( "name" );
             let userId = $( this ).data( "id" );
 

@@ -1,6 +1,6 @@
 $(document).ready(function(){
     $('#usuarios').DataTable({
-        pageLength: 100,
+        pageLength: 25,
         responsive: true,
         dom: '<"html5buttons"B>lTfgitp',
          "language": 
