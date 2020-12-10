@@ -24,7 +24,7 @@ Route::post('/datosPatrocinador','genericController@datos');
 Route::post('/verificarCiclo/{ciclo}&{anterior}','genericController@checarCiclo');
 Route::get('/habilitar','genericController@validar');
 Route::get('/eliminarUsuario/{id}','genericController@eliminarU');
-Route::get('/validarUsuario/{id}/{motivo?}','GenericController@validarU'); //Checar la G de GenericController si es mayuscula envia el correo correcto pero si es minuscula envía el otro correo que es el de activacion
+Route::get('/validarUsuario/{id}/{motivo?}','genericController@validarU'); //Checar la G de GenericController si es mayuscula envia el correo correcto pero si es minuscula envía el otro correo que es el de activacion
 Route::get('/crearDispersion','genericController@crearDispersion');
 Route::get('/listarPagos/{estatus}','genericController@listarPagos');
 Route::get('/listarPagos','genericController@listarPagos1');

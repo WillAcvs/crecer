@@ -40,6 +40,106 @@ class genericController extends Controller
         return $municipios;
     }
 
+
+    public function insertNodo(Request $request){
+        $user    = User::findOrFail($request->idUser);
+
+        userMatriz::create([
+            'idUser'   => $user->id,
+            'idMatriz' => 1, //Default Bronce
+            'estatus'  => 1
+        ]);
+
+        $newNode = nodos::create(['idUser'   => $user->id,'idArriba' => 0]);
+        
+        ciclo::create([
+            'idUser'   => $user->id,
+            'idNodo'   => $newNode->id,
+            'idMatriz' => 1, //Default Bronce
+            'tipo'     => 0,
+        ]);
+        $cycleSponsor = ciclo::where('idUser', $user->padre)->where('idMatriz',1)->where('estatus',0)->first();
+        $this->checkPositionNode($newNode, $cycleSponsor);
+    }
+
+    public function checkPositionNode($node, $cycle){
+        $nodesSponsor = nodos::find($cycle->idNodo);
+        //$nodeParent   = null;
+        $is_full      = false;
+        
+
+        $nodesSponsor = $this->checkComunity($node, $cycle, 1);
+
+        if($nodesSponsor->idIzquierda == null){
+            //Lugar vacio en el lado izquierdo del primer nivel 
+            //$nodeParent = $this->checkComunity($node, $cycle, 1);
+            $nodesSponsor->idIzquierda = $node->id;
+            $node->idArriba            = $nodesSponsor->id;
+            $nodesSponsor->save();
+
+        }elseif($nodesSponsor->idDerecha == null){
+            //Lugar vacio en el lado derecho del primer nivel 
+            //$nodeParent = $this->checkComunity($node, $cycle, 1);
+            $nodesSponsor->idDerecha = $node->id;
+            $node->idArriba          = $nodesSponsor->id;
+            $nodesSponsor->save();
+
+        }else{
+            $nodeLeft = nodos::find($nodesSponsor->idIzquierda);
+            if($nodeLeft->idIzquierda == null){
+                //Lugar vacio en el lado izquierdo del segundo nivel lado izquierdo
+                //$nodeParent = $this->checkComunity($node, $cycle, 1);
+                $nodeLeft->idIzquierda = $node->id;
+                $node->idArriba        = $nodeLeft->id;
+                $nodeLeft->save();
+
+            }elseif($nodeLeft->idDerecha == null){
+                //Lugar vacio en el lado derecho del segundo nivel lado izquierdo
+                //$nodeParent = $this->checkComunity($node, $cycle, 1);
+                $nodeLeft->idDerecha = $node->id;
+                $node->idArriba      = $nodeLeft->id;
+                $nodeLeft->save();
+
+            }else{
+                $nodeRight = nodos::find($nodesSponsor->idDerecha);
+                if($nodeRight->idIzquierda == null){
+                    //Lugar vacio en el lado izquierdo del segundo nivel lado derecho
+                    //$nodeParent = $this->checkComunity($node, $cycle, 1);
+                    $nodeRight->idIzquierda = $node->id;
+                    $node->idArriba         = $nodeRight->id;
+                    $nodeRight->save();
+                }else{
+                    //Lugar vacio en el lado derecho del segundo nivel lado derecho
+                    //$nodeParent = $this->checkComunity($node, $cycle, 1);
+                    $nodeRight->idDerecha = $node->id;
+                    $node->idArriba       = $nodeRight->id;
+                    $nodeRight->save();
+                }
+            }
+        }
+
+        $node->save();
+        $lleno=$this->seLleno($cycle->idNodo);
+        return $lleno;
+    }
+
+    public function checkComunity($node, $cycle, $level){
+        $finalNode = null;
+        if($level >= 2){
+            $tmpNode = nodos::findOrFail($cycle->idNodo);
+            $tmpUser = user::find($tmpNode->idUser);
+            //$upNode  = nodos::findOrFail($tmpNode->idArriba);
+            $cycle   = ciclo::where('idUser', $tmpUser->padre)->where('idMatriz',1)->where('estatus',0)->first();
+        }
+        $existInCycle = $this->revisaCicloPadre($cycle, $node->idUser);
+        if($existInCycle == true){
+            $finalNode= $this->checkComunity($node, $cycle, 2);
+        }else{
+            $finalNode = nodos::findOrFail($cycle->idNodo);
+        }
+        return $finalNode;
+    }
+
     public function insertaEnMatriz(Request $request)
     {
         $user = User::findOrFail($request->idUser);
@@ -65,7 +165,9 @@ class genericController extends Controller
                         ->where('estatus','=',0)->first();
         //se inserta
         //print_r($cicloPadre)
-        $lleno=$this->inserta($cicloPadre->idNodo,$nodo); 
+        //$lleno = $this->inserta($cicloPadre->idNodo,$nodo); 
+
+        $lleno = $this->checkPositionNode($nodo, $cicloPadre);
         $cicloPadre->tipo += 1;
         
         // la bandera lleno significa que la matriz se lleno y debe ciclar el padre
@@ -122,10 +224,22 @@ class genericController extends Controller
         $nodoCiclo=nodos::where('id','=',$idNodo)->first();
         if($nodoCiclo->idIzquierda != null) {
             if($nodoCiclo->idDerecha == null){
-                $nodoCiclo->idDerecha=$nodo->id;
-                $nodo->idArriba=$nodoCiclo->id;
-                $insertaAqui=true;
-                
+
+                /**Fix Aqui */
+                $nodoUp = nodos::find($nodoCiclo->idArriba);
+                $cicloPadre=ciclo::where('idUser','=',$nodoUp->idUser)
+                ->where('idMatriz','=',1)
+                ->where('estatus','=',0)->first();
+
+                $existInCycle = $this->revisaCicloPadre($cicloPadre, $nodo->idUser);
+                if($existInCycle == true){
+                    $nodoFinal = $this->revisaComunidad($cicloPadre, $nodo, $nodo);
+                    $this->inserta($nodoFinal->id, $nodo);
+                }else{
+                    $nodoCiclo->idDerecha=$nodo->id;
+                    $nodo->idArriba=$nodoCiclo->id;
+                    $insertaAqui=true;
+                }
             }
             if($insertaAqui==null) {
                 $nodoIzquierda=nodos::where('id','=',$nodoCiclo->idIzquierda)->first();
@@ -179,14 +293,21 @@ class genericController extends Controller
                         ->where('idMatriz','=',1)
                         ->where('estatus','=',0)->first();
 
-                    $existInCycle = $this->revisaCicloPadre($cicloPadre, $nodo->idUser);
+
+                    $nodoFinal = $this->revisaComunidad($cicloPadre, $nodo, $nodo);
+                    $this->inserta($nodoFinal->id, $nodo);
+
+                    /*$existInCycle = $this->revisaCicloPadre($cicloPadre, $nodo->idUser);
                     if($existInCycle == true){
                         $nodoFinal = $this->revisaComunidad($cicloPadre, $nodo, $nodo);
                         $this->inserta($nodoFinal->id, $nodo);
                     }else{
+
+
+
                         $nodoDerecha->idDerecha=$nodo->id;
                         $nodo->idArriba=$nodoDerecha->id;
-                    }
+                    }*/
                 }
             }
             $nodoDerecha->save();
@@ -283,8 +404,11 @@ class genericController extends Controller
                     $directo=$patrocinador->padre;
                 }
             }
+            //TODO:: FIX 
+            //$lleno = $this->inserta($cicloPadre->idNodo,$nodo);
+            $lleno = $this->checkPositionNode($nodo, $cicloPadre);
 
-            $lleno=$this->inserta($cicloPadre->idNodo,$nodo);
+            
             $cicloPadre->tipo += 1;
             if($lleno) {
                 $cicloPadre->estatus=1;
@@ -976,7 +1100,7 @@ public function validarU($id, $motivo = null){
         $mensaje='Activado';
         
         //comentar Mail para no enviar correos de pruebas
-        Mail::to($contt->email)->send(new ActivacionDeTuCuenta($titulo,$mensaje,$pago,$contt));
+        //Mail::to($contt->email)->send(new ActivacionDeTuCuenta($titulo,$mensaje,$pago,$contt));
        }
     }
     return redirect()->back()->with('status','Pre-Registro validado con exito.');
@@ -1044,7 +1168,7 @@ public function registrarPago($id,$amount){
     $titulo='Su pago ha sido procesado.';
     $mensaje='Felicidades!!! Hemos realizado el pago correspondiente por haber completado tu comunidad.';
     $event  = PagosUsuarios::where($where)->update($updateArr);
-    Mail::to($user->email)->send(new PagoProcesado ($titulo,$mensaje,$amount,$user));
+    //Mail::to($user->email)->send(new PagoProcesado ($titulo,$mensaje,$amount,$user));
     return redirect()->back()->with('status','Pago Procesado'); 
  
 }
@@ -1144,7 +1268,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=0;
@@ -1162,7 +1286,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=0;
@@ -1180,7 +1304,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos==1){
@@ -1200,7 +1324,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=2000;
@@ -1218,7 +1342,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=2000;
@@ -1236,7 +1360,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos>=2){
@@ -1256,7 +1380,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=2000;
@@ -1274,7 +1398,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=6000;
@@ -1292,7 +1416,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
         }
@@ -1315,7 +1439,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=0;
@@ -1333,7 +1457,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=0;
@@ -1351,7 +1475,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos==1){
@@ -1371,7 +1495,7 @@ foreach($ciclos as $ciclo){
                     $titulo='titulo mensaje';
                     $mensaje='Texto del mensaje a enviar';
                     $pago=$comisiones;
-                    Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                    //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=4000;
@@ -1389,7 +1513,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=4000;
@@ -1407,7 +1531,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos>=2){
@@ -1427,7 +1551,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=12000;
@@ -1445,7 +1569,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=12000;
@@ -1463,7 +1587,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
         }
@@ -1485,7 +1609,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=0;
@@ -1503,7 +1627,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=0;  
@@ -1521,7 +1645,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos==1){
@@ -1541,7 +1665,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=10000;
@@ -1559,7 +1683,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=10000;
@@ -1577,7 +1701,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos>=2){
@@ -1597,7 +1721,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=30000;
@@ -1615,7 +1739,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=30000;  
@@ -1633,7 +1757,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
         }
@@ -1656,7 +1780,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=0;
@@ -1674,7 +1798,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=0;
@@ -1692,7 +1816,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos==1){
@@ -1712,7 +1836,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=25000;
@@ -1730,7 +1854,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=25000;
@@ -1748,7 +1872,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos>=2){
@@ -1768,7 +1892,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=75000;
@@ -1786,7 +1910,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=75000;
@@ -1804,7 +1928,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
         }
@@ -1827,7 +1951,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=0;  
@@ -1845,7 +1969,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=0; 
@@ -1863,7 +1987,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos==1){
@@ -1883,7 +2007,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=50000;
@@ -1901,7 +2025,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=50000;
@@ -1919,7 +2043,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos>=2){
@@ -1939,7 +2063,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=150000;
@@ -1957,7 +2081,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=150000;
@@ -1975,7 +2099,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
         }
@@ -1998,7 +2122,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=0;
@@ -2016,7 +2140,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=0; 
@@ -2034,7 +2158,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos==1){
@@ -2054,7 +2178,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=100000; 
@@ -2072,7 +2196,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=100000;  
@@ -2090,7 +2214,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
             if($directos>=2){
@@ -2110,7 +2234,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==2){
                     $comisiones=300000;
@@ -2128,7 +2252,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
                 if($comunidad==3){
                     $comisiones=300000;
@@ -2146,7 +2270,7 @@ foreach($ciclos as $ciclo){
                         $titulo='titulo mensaje';
                         $mensaje='Texto del mensaje a enviar';
                         $pago=$comisiones;
-                        Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
+                        //Mail::to($user->email)->send(new CompletasteTuComunidad($titulo,$mensaje,$pago,$user));
                 }
             }
         }
