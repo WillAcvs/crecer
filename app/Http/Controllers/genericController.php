@@ -361,7 +361,9 @@ class genericController extends Controller
                 $cicloPadre=ciclo::where('idUser','=',$userCicla->sigueA)
                             ->where('idMatriz','=',$idMatriz)
                             ->where('estatus','=',0)->first();
-                $lleno=$this->inserta($cicloPadre->idNodo,$nodo);
+                //$lleno=$this->inserta($cicloPadre->idNodo,$nodo);
+
+                $lleno = $this->checkPositionNode($nodo, $cicloPadre);
                 
                 $cicloPadre->tipo += 1;
                 switch ($userCicla->sigueA) {
@@ -606,7 +608,8 @@ class genericController extends Controller
                                 'estatus'=> 1
                                 ]);
                         $cicloPadre = $this->buscaNodoPadre($userSalta,$matriz);
-                        $lleno = $this->inserta($cicloPadre->idNodo,$nodo);
+                        //$lleno = $this->inserta($cicloPadre->idNodo,$nodo);
+                        $lleno = $this->checkPositionNode($nodo, $cicloPadre);
                         $cicloPadre->tipo += 1;
                         if($lleno){
                             $cicloPadre->estatus = 1;
@@ -658,7 +661,8 @@ class genericController extends Controller
                                 'estatus'=> 1
                         ]);
                         $cicloPadre = $this->buscaNodoPadre($userSalta,$matriz);
-                        $lleno = $this->inserta($cicloPadre->idNodo,$nodo);
+                        $lleno = $this->checkPositionNode($nodo, $cicloPadre);
+                        //$lleno = $this->inserta($cicloPadre->idNodo,$nodo);
                         $cicloPadre->tipo += 1;
                         if($lleno){
                             $cicloPadre->estatus = 1;
